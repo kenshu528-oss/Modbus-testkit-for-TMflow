@@ -147,6 +147,22 @@
 
 ## 🛠️ 開發工具
 
+### 打包成獨立執行檔
+
+如果需要更新 Release 資料夾中的執行檔：
+
+```bash
+# 方式 1: 使用自動腳本（推薦）
+雙擊「打包成EXE.bat」
+
+# 方式 2: 手動打包
+pip install pyinstaller
+pyinstaller --onefile --windowed --name "TMflow_Modbus_Testkit" tmflow_modbus_testkit.py
+copy dist\TMflow_Modbus_Testkit.exe Release\
+```
+
+打包後的執行檔位於 `Release/` 資料夾，可直接分享給同事使用。
+
 ### Modbus 模擬器
 
 專案包含一個 Modbus 模擬器（`simulator.py`），用於開發階段測試：
