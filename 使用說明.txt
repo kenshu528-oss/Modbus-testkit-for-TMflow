@@ -1,0 +1,83 @@
+========================================
+TMflow Modbus 功能測試工具 - 使用說明
+========================================
+
+【工具目的】
+  測試 TMflow 程式的 Modbus 功能
+  驗證 TMflow 的 Modbus 讀寫是否符合規範
+
+【使用步驟】
+  1. 確保 TMflow 程式正在運行
+     - TMflow 必須已啟動
+     - Modbus TCP Server 功能已開啟
+  
+  2. 啟動測試工具
+     - 雙擊「啟動測試工具.bat」
+     - 或執行: python tmflow_modbus_testkit.py
+  
+  3. 連線到 TMflow
+     - IP: 輸入 TMflow 所在電腦的 IP（例如 192.168.1.100）
+     - Port: 502（Modbus 標準 Port）
+     - 點擊「連線」按鈕
+  
+  4. 執行測試
+     - Base 座標測試: 驗證 7001-7012 讀取
+     - Tool 座標測試: 驗證 7025-7036 讀取
+     - Joint 角度測試: 驗證 7013-7024 讀取
+     - Robot 狀態測試: 驗證狀態位元讀取
+     - User Define 測試: 驗證 9000-9999 讀寫
+  
+  5. 性能測試
+     - 測試 TMflow 的 Modbus 反應速度
+     - 驗證通訊穩定性
+     - 生成測試報告
+
+【測試項目】
+  ✓ 座標讀取驗證 (Base, Tool, Joint)
+  ✓ 狀態讀取驗證 (Robot Link, Error, ESTOP 等)
+  ✓ User Define Area 讀寫驗證 (9000-9999)
+  ✓ 數據格式驗證 (Float32, Int16, Bool)
+  ✓ 性能測試 (反應時間、成功率)
+  ✓ 穩定性測試 (大量連續測試)
+
+【連線設定】
+  - IP: TMflow 所在電腦的 IP
+  - Port: 502（Modbus TCP 標準 Port）
+  - Slave ID: 1（固定）
+  - 超時: 3 秒
+
+【測試報告】
+  - 日誌檔案: tm_robot_test_log_YYYYMMDD_HHMMSS.txt
+  - 性能報告: tm_robot_performance_report_YYYYMMDD_HHMMSS.txt
+  - 用途: 作為 TMflow Modbus 功能驗證證明
+
+【常見問題】
+  Q: 無法連線到 TMflow？
+  A: 1. 確認 TMflow 程式正在運行
+     2. 確認 TMflow 的 Modbus 功能已啟用
+     3. 檢查 IP 位址是否正確
+     4. 檢查防火牆設定（Port 502）
+     5. 確認網路連線正常
+
+  Q: 讀取數據失敗？
+  A: 1. 確認 TMflow 的 Modbus Server 已啟動
+     2. 確認位址範圍正確
+     3. 查看日誌中的錯誤訊息
+
+  Q: 性能測試結果不理想？
+  A: 1. 檢查網路延遲
+     2. 確認 TMflow 負載狀況
+     3. 調整測試間隔時間
+
+  Q: 需要使用模擬器嗎？
+  A: 不需要。模擬器（simulator.py）僅用於開發階段，
+     實際測試時直接連線到 TMflow 程式。
+
+【技術支援】
+  如有問題，請聯繫技術支援團隊
+  並提供測試日誌檔案
+
+========================================
+版本: v1.0.1.0001
+更新日期: 2026-02-09
+========================================

@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 測試日誌和報告 (自動生成的檔案)
+tm_robot_test_log_*.txt
+tm_robot_performance_report_*.txt
+
+# TM Robot 官方文件 (版權考量，不上傳)
+TM_Doc/
+*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 臨時檔案
+*.tmp
+*.bak
+*.log
