@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.7+-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-v1.0.1.0001-orange.svg)](https://github.com/kenshu528-oss/Modbus-testkit-for-TMflow)
+[![Version](https://img.shields.io/badge/Version-v1.0.1.0002-orange.svg)](https://github.com/kenshu528-oss/Modbus-testkit-for-TMflow)
 
 > 專業的 TMflow Modbus 功能驗證工具 - 測試 TMflow 的 Modbus TCP 讀寫是否符合 TM Robot 規範
 
@@ -229,6 +229,13 @@ Modbus-testkit-for-TMflow/
 ---
 
 ## 🔖 版本歷史
+
+### v1.0.1.0002 (2026-02-09)
+- ✅ 整合連線/斷線按鈕為單一按鈕
+- ✅ 狀態列移至連線按鈕旁
+- ✅ 移除按鈕內的燈號（避免重複）
+- ✅ 新增打包成 EXE 的功能
+- ✅ 新增給同事使用的完整文件
 
 ### v1.0.1.0001 (2026-02-09)
 - ✅ 完整的 GUI 測試工具

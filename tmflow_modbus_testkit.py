@@ -14,7 +14,7 @@ import time
 from datetime import datetime
 
 class TMRobotTestGUI:
-    VERSION = "v1.0.1.0001"  # 版本號
+    VERSION = "v1.0.1.0002"  # 版本號
     
     def __init__(self, root):
         self.root = root

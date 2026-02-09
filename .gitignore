@@ -40,6 +40,18 @@ tm_robot_performance_report_*.txt
 TM_Doc/
 *.pdf
 
+# PyInstaller 打包產生的檔案
+build/
+dist/
+*.spec
+TMflow_Modbus_Testkit_Portable_*/
+TMflow_Modbus_Testkit_v*/
+*.zip
+
+# 保留 Release 資料夾給同事使用
+!Release/
+!Release/**
+
 # OS
 .DS_Store
 Thumbs.db
