@@ -6,15 +6,18 @@ TM Robot 座標測試 GUI
 """
 
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, filedialog
 from pymodbus.client import ModbusTcpClient
 import struct
 import threading
 import time
 from datetime import datetime
+import json
+import os
+import csv
 
 class TMRobotTestGUI:
-    VERSION = "v1.0.1.0002"  # 版本號
+    VERSION = "v1.0.2.0003"  # 版本號
     
     def __init__(self, root):
         self.root = root
@@ -24,7 +27,18 @@ class TMRobotTestGUI:
         self.client = None
         self.is_connected = False
         
+        # 設定檔路徑
+        self.config_file = "testkit_config.json"
+        self.load_config()
+        
+        # 測試套件
+        self.test_suites = self.load_test_suites()
+        
+        # 測試結果記錄
+        self.test_results_history = []
+        
         self.setup_ui()
+        self.setup_keyboard_shortcuts()
         
     def validate_number(self, value):
         """驗證輸入是否為有效數字"""
@@ -45,6 +59,84 @@ class TMRobotTestGUI:
             return 0 <= num <= 60000  # 限制範圍 0-60000ms (1分鐘)
         except ValueError:
             return False
+    
+    def load_config(self):
+        """載入設定檔"""
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    self.config = json.load(f)
+            else:
+                self.config = {
+                    "ip_history": ["127.0.0.1"],
+                    "last_ip": "127.0.0.1",
+                    "last_port": "502"
+                }
+        except Exception as e:
+            print(f"載入設定失敗: {e}")
+            self.config = {
+                "ip_history": ["127.0.0.1"],
+                "last_ip": "127.0.0.1",
+                "last_port": "502"
+            }
+    
+    def save_config(self):
+        """儲存設定檔"""
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"儲存設定失敗: {e}")
+    
+    def add_ip_to_history(self, ip):
+        """新增 IP 到歷史記錄"""
+        if ip not in self.config["ip_history"]:
+            self.config["ip_history"].insert(0, ip)
+            # 只保留最近 10 個
+            self.config["ip_history"] = self.config["ip_history"][:10]
+        else:
+            # 移到最前面
+            self.config["ip_history"].remove(ip)
+            self.config["ip_history"].insert(0, ip)
+        self.config["last_ip"] = ip
+        self.save_config()
+    
+    def load_test_suites(self):
+        """載入測試套件定義"""
+        return {
+            "基本功能測試": [
+                {"name": "Robot Link", "func": "test_robot_status"},
+                {"name": "Base 座標", "func": "test_base_coords"},
+                {"name": "Joint 角度", "func": "test_joint_angles"}
+            ],
+            "完整座標測試": [
+                {"name": "Base 座標", "func": "test_base_coords"},
+                {"name": "Tool 座標", "func": "test_tool_coords"},
+                {"name": "Joint 角度", "func": "test_joint_angles"}
+            ],
+            "狀態檢查": [
+                {"name": "Robot 狀態", "func": "test_robot_status"}
+            ],
+            "User Define 測試": [
+                {"name": "User Define Area", "func": "test_user_define_area"}
+            ],
+            "全功能測試": [
+                {"name": "Base 座標", "func": "test_base_coords"},
+                {"name": "Tool 座標", "func": "test_tool_coords"},
+                {"name": "Joint 角度", "func": "test_joint_angles"},
+                {"name": "Robot 狀態", "func": "test_robot_status"},
+                {"name": "User Define Area", "func": "test_user_define_area"}
+            ]
+        }
+    
+    def setup_keyboard_shortcuts(self):
+        """設定鍵盤快捷鍵"""
+        self.root.bind('<Control-c>', lambda e: self.toggle_connection())
+        self.root.bind('<Control-t>', lambda e: self.test_all())
+        self.root.bind('<Control-l>', lambda e: self.clear_log())
+        self.root.bind('<Control-s>', lambda e: self.save_log())
+        self.root.bind('<F5>', lambda e: self.test_all())
+        self.root.bind('<Escape>', lambda e: self.stop_performance_test() if self.perf_testing else None)
         
     def setup_ui(self):
         """建立使用者介面"""
@@ -55,18 +147,22 @@ class TMRobotTestGUI:
         
         # IP 和 Port
         ttk.Label(conn_frame, text="IP:").grid(row=0, column=0, sticky="w")
-        self.ip_var = tk.StringVar(value="127.0.0.1")
-        ttk.Entry(conn_frame, textvariable=self.ip_var, width=15).grid(row=0, column=1, padx=5)
+        self.ip_var = tk.StringVar(value=self.config.get("last_ip", "127.0.0.1"))
+        
+        # 使用 Combobox 顯示 IP 歷史
+        self.ip_combo = ttk.Combobox(conn_frame, textvariable=self.ip_var, width=15)
+        self.ip_combo['values'] = self.config.get("ip_history", ["127.0.0.1"])
+        self.ip_combo.grid(row=0, column=1, padx=5)
         
         ttk.Label(conn_frame, text="Port:").grid(row=0, column=2, sticky="w", padx=(20,0))
-        self.port_var = tk.StringVar(value="502")
+        self.port_var = tk.StringVar(value=self.config.get("last_port", "502"))
         ttk.Entry(conn_frame, textvariable=self.port_var, width=8).grid(row=0, column=3, padx=5)
         
-        # 整合的連線/斷線按鈕（移除燈號，縮小寬度）
-        self.connection_btn = ttk.Button(conn_frame, text="連線", command=self.toggle_connection, width=10)
+        # 整合的連線/斷線按鈕
+        self.connection_btn = ttk.Button(conn_frame, text="連線 (Ctrl+C)", command=self.toggle_connection, width=15)
         self.connection_btn.grid(row=0, column=4, padx=10)
         
-        # 狀態顯示（移到按鈕後方）
+        # 狀態顯示
         self.status_var = tk.StringVar(value="🔴 未連線")
         status_label = ttk.Label(conn_frame, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W, width=30)
         status_label.grid(row=0, column=5, padx=5, sticky="ew")
@@ -124,15 +220,33 @@ class TMRobotTestGUI:
         btn_frame2.pack(fill="x", pady=(0,5))
         
         ttk.Button(btn_frame2, text="📊 Robot 狀態", command=self.test_robot_status, width=12).pack(side="left", padx=2)
-        ttk.Button(btn_frame2, text="🔄 全部測試", command=self.test_all, width=12).pack(side="left", padx=2)
+        ttk.Button(btn_frame2, text="🔄 全部測試 (F5)", command=self.test_all, width=15).pack(side="left", padx=2)
         ttk.Button(btn_frame2, text="🔁 連續監控", command=self.toggle_monitoring, width=12).pack(side="left", padx=2)
         
         # 測試按鈕 - 第三排
         btn_frame3 = ttk.Frame(test_frame)
-        btn_frame3.pack(fill="x")
+        btn_frame3.pack(fill="x", pady=(0,5))
         
-        ttk.Button(btn_frame3, text="🗑️ 清除日誌", command=self.clear_log, width=12).pack(side="left", padx=2)
-        ttk.Button(btn_frame3, text="💾 儲存日誌", command=self.save_log, width=12).pack(side="left", padx=2)
+        ttk.Button(btn_frame3, text="🗑️ 清除 (Ctrl+L)", command=self.clear_log, width=15).pack(side="left", padx=2)
+        ttk.Button(btn_frame3, text="💾 儲存 (Ctrl+S)", command=self.save_log, width=15).pack(side="left", padx=2)
+        ttk.Button(btn_frame3, text="📊 匯出 CSV", command=self.export_results_csv, width=12).pack(side="left", padx=2)
+        
+        # === 測試套件區域 ===
+        suite_frame = ttk.LabelFrame(left_frame, text="📦 測試套件", padding="10")
+        suite_frame.pack(fill="x", pady=(0,5))
+        
+        # 套件選擇
+        suite_select_frame = ttk.Frame(suite_frame)
+        suite_select_frame.pack(fill="x", pady=(0,5))
+        
+        ttk.Label(suite_select_frame, text="選擇套件:").pack(side="left", padx=(0,5))
+        self.suite_var = tk.StringVar(value="完整座標測試")
+        suite_combo = ttk.Combobox(suite_select_frame, textvariable=self.suite_var, width=20, state="readonly")
+        suite_combo['values'] = list(self.test_suites.keys())
+        suite_combo.pack(side="left", padx=5)
+        
+        ttk.Button(suite_select_frame, text="🚀 執行套件", command=self.run_test_suite, width=12).pack(side="left", padx=5)
+        ttk.Button(suite_select_frame, text="📋 查看內容", command=self.show_suite_content, width=12).pack(side="left", padx=5)
         
         # === 右側：USER DEFINE 測試區域 ===
         right_frame = ttk.Frame(main_content)
@@ -386,13 +500,13 @@ class TMRobotTestGUI:
         state: 'disconnected', 'connecting', 'connected'
         """
         if state == 'disconnected':
-            self.connection_btn.config(text="連線", state="normal")
+            self.connection_btn.config(text="連線 (Ctrl+C)", state="normal")
             self.status_var.set("🔴 未連線")
         elif state == 'connecting':
             self.connection_btn.config(text="連線中...", state="disabled")
             self.status_var.set("⚪ 連線中...")
         elif state == 'connected':
-            self.connection_btn.config(text="斷線", state="normal")
+            self.connection_btn.config(text="斷線 (Ctrl+C)", state="normal")
     
     def connect(self):
         """連線到 Modbus"""
@@ -411,17 +525,25 @@ class TMRobotTestGUI:
                 self.update_connection_button('connected')
                 self.log(f"🔌 連線成功: {ip}:{port}", "SUCCESS")
                 self.status_var.set(f"🟢 已連線: {ip}:{port}")
+                
+                # 儲存 IP 到歷史記錄
+                self.add_ip_to_history(ip)
+                self.config["last_port"] = port
+                self.save_config()
+                
+                # 更新 IP 下拉選單
+                self.ip_combo['values'] = self.config["ip_history"]
             else:
                 self.is_connected = False
                 self.update_connection_button('disconnected')
                 self.log("🔌 連線失敗", "ERROR")
-                messagebox.showerror("連線失敗", f"無法連線到 {ip}:{port}")
+                messagebox.showerror("連線失敗", f"無法連線到 {ip}:{port}\n\n請檢查：\n1. TMflow 是否正在運行\n2. Modbus TCP Server 是否已啟用\n3. IP 位址和 Port 是否正確\n4. 網路連線是否正常")
                 
         except Exception as e:
             self.is_connected = False
             self.update_connection_button('disconnected')
             self.log(f"🔌 連線錯誤: {e}", "ERROR")
-            messagebox.showerror("連線錯誤", str(e))
+            messagebox.showerror("連線錯誤", f"連線時發生錯誤：\n{str(e)}\n\n請檢查網路設定和防火牆")
             
     def disconnect(self):
         """斷線"""
@@ -1098,6 +1220,122 @@ class TMRobotTestGUI:
             except Exception as e:
                 self.log(f"🔄 監控錯誤: {e}", "ERROR")
                 break
+    
+    def run_test_suite(self):
+        """執行測試套件"""
+        if not self.is_connected:
+            self.log("❌ 請先連線", "ERROR")
+            return
+        
+        suite_name = self.suite_var.get()
+        if suite_name not in self.test_suites:
+            self.log(f"❌ 找不到測試套件: {suite_name}", "ERROR")
+            return
+        
+        suite = self.test_suites[suite_name]
+        
+        self.log(f"🚀 開始執行測試套件: {suite_name}")
+        self.log("=" * 50)
+        
+        passed = 0
+        failed = 0
+        
+        for test in suite:
+            try:
+                self.log(f"\n▶️ 執行: {test['name']}")
+                
+                # 執行測試函數
+                func = getattr(self, test['func'])
+                func()
+                
+                passed += 1
+                time.sleep(0.3)  # 測試間隔
+                
+            except Exception as e:
+                self.log(f"❌ 測試失敗: {test['name']} - {e}", "ERROR")
+                failed += 1
+        
+        self.log("=" * 50)
+        self.log(f"🎉 測試套件完成: {suite_name}", "SUCCESS")
+        self.log(f"📊 結果: 通過 {passed}/{len(suite)}, 失敗 {failed}/{len(suite)}")
+        
+        if failed == 0:
+            self.log("✅ 所有測試通過！", "SUCCESS")
+        else:
+            self.log(f"⚠️ 有 {failed} 個測試失敗", "WARNING")
+    
+    def show_suite_content(self):
+        """顯示測試套件內容"""
+        suite_name = self.suite_var.get()
+        if suite_name not in self.test_suites:
+            messagebox.showerror("錯誤", f"找不到測試套件: {suite_name}")
+            return
+        
+        suite = self.test_suites[suite_name]
+        
+        content = f"測試套件: {suite_name}\n"
+        content += "=" * 40 + "\n\n"
+        content += f"包含 {len(suite)} 個測試項目：\n\n"
+        
+        for i, test in enumerate(suite, 1):
+            content += f"{i}. {test['name']}\n"
+        
+        messagebox.showinfo("測試套件內容", content)
+    
+    def export_results_csv(self):
+        """匯出測試結果為 CSV"""
+        if not self.test_results_history:
+            # 如果沒有歷史記錄，從日誌中提取
+            log_content = self.log_text.get(1.0, tk.END)
+            if not log_content.strip():
+                messagebox.showwarning("無資料", "沒有測試結果可以匯出")
+                return
+        
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".csv",
+                initialfile=f"test_results_{timestamp}.csv",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+            )
+            
+            if not filename:
+                return
+            
+            with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                
+                # 寫入標題
+                writer.writerow(['時間', '測試項目', '狀態', '詳細資訊'])
+                
+                # 從日誌中提取資料
+                log_content = self.log_text.get(1.0, tk.END)
+                for line in log_content.split('\n'):
+                    if line.strip():
+                        # 簡單解析日誌行
+                        parts = line.split('] ', 1)
+                        if len(parts) == 2:
+                            time_part = parts[0].replace('[', '')
+                            message = parts[1]
+                            
+                            # 判斷狀態
+                            if '✅' in message or 'SUCCESS' in message:
+                                status = '成功'
+                            elif '❌' in message or 'ERROR' in message:
+                                status = '失敗'
+                            elif '⚠️' in message or 'WARNING' in message:
+                                status = '警告'
+                            else:
+                                status = '資訊'
+                            
+                            writer.writerow([time_part, '', status, message])
+            
+            self.log(f"📊 測試結果已匯出: {filename}", "SUCCESS")
+            messagebox.showinfo("匯出成功", f"測試結果已匯出至：\n{filename}")
+            
+        except Exception as e:
+            self.log(f"📊 匯出失敗: {e}", "ERROR")
+            messagebox.showerror("匯出失敗", f"匯出時發生錯誤：\n{str(e)}")
 
 def main():
     root = tk.Tk()
